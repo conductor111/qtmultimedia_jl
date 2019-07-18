@@ -1,0 +1,1 @@
+This project is based on qtmultimedia/examples/multimediawidgets/player and qtmultimedia/examples/multimediawidgets/camera examples.

@@ -1,0 +1,1 @@
+if not exist "%GSTREAMER_1_0_ROOT_X86_64%lib\gstreamer-app-1.0.lib" mklink "%GSTREAMER_1_0_ROOT_X86_64%lib\gstreamer-app-1.0.lib" "%GSTREAMER_1_0_ROOT_X86_64%lib\gstapp-1.0.lib"

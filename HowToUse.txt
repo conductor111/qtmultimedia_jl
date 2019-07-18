@@ -1,0 +1,32 @@
+1. Create permanent environment variable named QTDIR_JL_596_2015_64 with value pointed to Qt qtbase directory - <ParentQtDir>\5.9\qtbase (for example D:\Qt_VS2015\5.9.6\x64\Qt5.9.6\5.9\qtbase)
+
+2. Add %GSTREAMER_1_0_ROOT_X86_64%bin to PATH environment variable.
+
+3. Easy way to learn how to use - view the .\examples\PlayerRecorder example. This example is based on qtmultimedia\examples\multimediawidgets\player. The playing and recording video using gstreamer (with creation video from image sequence) have been added to it.
+See method Open of Player class, AppSrcDevice and AppSrcDevice2 classes (player.h/.cpp).
+
+4. Pay attention to post-build steps of the project:
+
+debug:
+
+    SET PATH=$(QTDIR_JL_596_2015_64)\bin;$(QTDIR_JL_596_2015_64)\lib;%PATH%
+    $(QTDIR_JL_596_2015_64)\bin\windeployqt.exe  $(TargetPath)
+    IF NOT EXIST $(TargetDir)qgsttools_pd.dll copy $(QTDIR_JL_596_2015_64)\bin\qgsttools_pd.dll $(TargetDir)qgsttools_pd.dll
+    del /Q $(TargetDir)mediaservice\dsengined.dll
+    del /Q $(TargetDir)mediaservice\qtmedia_audioengined.dll
+    del /Q $(TargetDir)mediaservice\wmfengined.dll
+
+release:
+
+    SET PATH=$(QTDIR_JL_596_2015_64)\bin;$(QTDIR_JL_596_2015_64)\lib;%PATH%
+    $(QTDIR_JL_596_2015_64)\bin\windeployqt.exe  $(TargetPath)
+    IF NOT EXIST $(TargetDir)qgsttools_p.dll copy $(QTDIR_JL_596_2015_64)\bin\qgsttools_p.dll $(TargetDir)qgsttools_p.dll
+    del /Q $(TargetDir)mediaservice\dsengine.dll
+    del /Q $(TargetDir)mediaservice\qtmedia_audioengine.dll
+    del /Q $(TargetDir)mediaservice\wmfengine.dll
+
+They are important for the application to work properly. 
+dsengine.dll, qtmedia_audioengine.dll, wmfengine.dll are libraries that use the Windows default multimedia environment (DirectShow etc.), so if they exist in the mediaservice subdirectory, gstremer will not be used.
+qgsttools_pd.dll/qgsttools_p.dll is a required library of Qt gstreamer.
+
+

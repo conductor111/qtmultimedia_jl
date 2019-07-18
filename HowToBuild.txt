@@ -1,0 +1,43 @@
+1. Mkdir <ParentQtDir> (for example D:\Qt_VS2015\5.9.6\x64\Qt5.9.6\)
+
+2. Unpack qt-everywhere-opensource-src-5.9.6.zip to <ParentQtDir> (result is <ParentQtDir>\qt-everywhere-opensource-src-5.9.6\)
+
+3. Rename <ParentQtDir>\qt-everywhere-opensource-src-5.9.6\ to <ParentQtDir>\5.9\
+
+4. Copy .\qtmultimedia_jl\qtmultimedia\ to <ParentQtDir>\5.9\ (overwrite all)
+
+5. Install complete gstreamer-1.0-x86_64-1.14.3.msi and  gstreamer-1.0-devel-x86_64-1.14.3.msi
+   Note: gstreamer creates a new permanent environment variable (GSTREAMER_1_0_ROOT_X86_64), so if you are working in the console, you must restart the console - otherwise GSTREAMER_1_0_ROOT_X86_64 will not be defined.
+
+6. Make a symbolic link %GSTREAMER_1_0_ROOT_X86_64%lib\gstreamer-app-1.0.lib pointed to %GSTREAMER_1_0_ROOT_X86_64%lib\gstapp-1.0.lib:
+
+    mklink "%GSTREAMER_1_0_ROOT_X86_64%lib\gstreamer-app-1.0.lib" "%GSTREAMER_1_0_ROOT_X86_64%lib\gstapp-1.0.lib"
+
+(or run .\qtmultimedia_jl\build_scripts\make_gstreamer-app_symlink.cmd as Administrator)
+
+7. Install complete python-2.7 (for example python-2.7.14.amd64.msi)
+
+8. Install complete ActivePerl (for example ActivePerl-5.24.0.2400-MSWin32-x64-300558.exe)
+
+9. Install Ruby. Install is just unpack the ruby-*.7z content to some directory (for example unpack ruby-2.2.5-i386-mingw32.7z to D:\Qt\ruby-2.2.5-i386-mingw32)
+
+10. Check and update enviroment variables (in .\qtmultimedia_jl\build_scripts\set_env_var.cmd):
+
+    QT_BASE_DIR - <ParentQtDir>\5.9
+    PYTHON_2_7_DIR - path to python-2.7
+    PERL_64_DIR - path to ActivePerl
+    RUBY_DIR - path to Ruby
+
+11. Run "VS2015 x64 Native Tools Command Prompt" (default command line is: 
+
+    %comspec% /k ""C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"" amd64
+
+or Start->Programs->Visual Studio 2015->Windows Desktop Command Prompts->VS2015 x64 Native Tools Command Prompt)
+
+12. Chande directory to .\qtmultimedia_jl\build_scripts
+
+13. Run configure.cmd (full Qt) or configure_without_webengine.cmd (Qt without WebEngine components)
+
+14. Read the output messages
+
+15. If everything is all right - run nmake in the same console
