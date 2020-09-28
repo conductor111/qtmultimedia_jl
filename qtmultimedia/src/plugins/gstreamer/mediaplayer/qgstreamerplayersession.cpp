@@ -400,6 +400,9 @@ GstElement* QGstreamerPlayerSession::buildElement()
         return nullptr;
     }
 
+
+    m_additionalInitParams = userData.value<QStringList>();
+
     GstElement* appsrc = gst_element_factory_make("appsrc", "source");
     configureAppSrcObjects(m_request, m_appSrcRecord, appsrc);
 

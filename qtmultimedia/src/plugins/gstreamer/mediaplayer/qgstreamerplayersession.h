@@ -101,6 +101,10 @@ public:
 
         return QList<QSize>();
     }
+    virtual QStringList additionalInitParams() const
+    {
+        return m_additionalInitParams;
+    }
     //////////////////////////////////////
 
     QGstreamerPlayerSession(QObject *parent);
@@ -286,6 +290,10 @@ private:
     bool m_isLiveSource;
 
     gulong pad_probe_id;
+
+    // jl
+    QStringList m_additionalInitParams;
+    //////////////////////////////////////////////////////////////////////////
 };
 
 QT_END_NAMESPACE

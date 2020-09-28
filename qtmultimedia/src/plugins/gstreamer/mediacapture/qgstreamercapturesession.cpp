@@ -193,10 +193,6 @@ GstElement *QGstreamerCaptureSession::buildEncodeBin()
             return 0;
         }
 
-        //jl
-        g_object_set(fileSink, "sync", true, NULL);
-        //////////////////////////////////////////////////////////////////////////
-
         // add ghostpads
         GstPad *pad = gst_element_get_static_pad(videoQueue, "sink");
         gst_element_add_pad(GST_ELEMENT(encodeBin), gst_ghost_pad_new("videosink", pad));
@@ -268,6 +264,10 @@ GstElement *QGstreamerCaptureSession::buildAudioPreview()
 #endif
     }
 
+    //jl
+    g_object_set(previewElement, "sync", true, NULL);
+    //////////////////////////////////////////////////////////////////////////
+
     return previewElement;
 }
 
@@ -276,6 +276,35 @@ GstElement *QGstreamerCaptureSession::buildVideoSrc()
     GstElement *videoSrc = 0;
     if (m_videoInputFactory) {
         videoSrc = m_videoInputFactory->buildElement();
+        // jl
+        const char* cTrue = "true";
+        const char* cFalse = "false";
+        QStringList addParams = m_videoInputFactory->additionalInitParams();
+        for (int i = 0; i < addParams.size(); ++i)
+        {
+            QString param = addParams.at(i).trimmed();
+            QStringList triplet = param.split(":");
+            if (triplet.size() != 3)
+            {
+                continue;
+            }
+
+            QString componentKey = triplet.at(0).trimmed();
+            QString name = triplet.at(1).trimmed();
+            QString value = triplet.at(2).trimmed();
+
+            if (componentKey != "QGCS")
+            {
+                continue;
+            }
+
+            if (name == "PreviewAndRecordingPipelineEnable")
+            {
+                QString v = value.toLower();
+                m_previewAndRecordingPipelineEnable = (v == cTrue || v == cFalse) ? v == cTrue : false;
+            }
+        }
+        //////////////////////////////////////////////////////////////////////////
     } else {
         videoSrc = gst_element_factory_make("videotestsrc", "video_test_src");
         //videoSrc = gst_element_factory_make("v4l2src", "video_test_src");
@@ -777,7 +806,7 @@ void QGstreamerCaptureSession::setState(QGstreamerCaptureSession::State newState
         case RecordingState:
             // jl
             //newMode = PreviewAndRecordingPipeline;
-            newMode = RecordingPipeline;
+            newMode = m_previewAndRecordingPipelineEnable ? PreviewAndRecordingPipeline : RecordingPipeline;
             //////////////////////////////////////////////////////////////////////////
             break;
         case PreviewState:

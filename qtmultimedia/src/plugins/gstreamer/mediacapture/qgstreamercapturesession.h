@@ -84,6 +84,9 @@ class QGstreamerVideoInput : public QGstreamerElementFactory
 public:
     virtual QList<qreal> supportedFrameRates(const QSize &frameSize = QSize()) const = 0;
     virtual QList<QSize> supportedResolutions(qreal frameRate = -1) const = 0;
+    // jl
+    virtual QStringList additionalInitParams() const = 0;
+    //////////////////////////////////////////////////////////////////////////
 };
 
 class QGstreamerCaptureSession
@@ -235,6 +238,10 @@ private:
     GstElement *m_imageCaptureBin;
 
     GstElement *m_encodeBin;
+
+    // jl
+    bool m_previewAndRecordingPipelineEnable = false;
+    //////////////////////////////////////////////////////////////////////////
 
 #if GST_CHECK_VERSION(1,0,0)
     GstVideoInfo m_previewInfo;

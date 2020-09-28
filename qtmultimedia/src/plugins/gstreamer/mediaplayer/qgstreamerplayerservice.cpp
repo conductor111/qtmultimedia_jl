@@ -196,7 +196,7 @@ QGstreamerPlayerService::QGstreamerPlayerService(QObject *parent):
     if (isPlayerCaptureSessionAvailable(existLibrary, existCreator))
     {
         typedef QGstreamerCaptureSessionWrapper* (*QGCSW)(QGstreamerCaptureSession::CaptureMode, QObject*);
-        m_captureSession = ((QGCSW)s_captureProc)(QGstreamerCaptureSession::Video, this);
+        m_captureSession = ((QGCSW)s_captureProc)(QGstreamerCaptureSession::AudioAndVideo, this);
         m_captureSession->setVideoInput(m_session);
     }
     //////////////////////////////////////////////////////////////////////////

@@ -65,7 +65,10 @@ public:
         const bool hasGlib = dispatcher && dispatcher->inherits("QEventDispatcherGlib");
         if (!hasGlib) {
             m_intervalTimer = new QTimer(this);
-            m_intervalTimer->setInterval(250);
+            // jl
+            //m_intervalTimer->setInterval(250);
+            m_intervalTimer->setInterval(30);
+            //////////////////////////////////////
             connect(m_intervalTimer, SIGNAL(timeout()), SLOT(interval()));
             m_intervalTimer->start();
         } else {

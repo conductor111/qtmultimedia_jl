@@ -203,6 +203,18 @@ void QGstAppSrc::pushDataToAppSrc()
             //////////////////////////////////////////////////////////////////////////
             if (m_useCustomProcessing)
             {
+//                 GstClock* _clock = gst_element_get_clock (GST_ELEMENT_CAST(m_appSrc));
+//                 if (_clock)
+//                 {
+//                     GstClockTime now_time = gst_clock_get_time(_clock);
+//                     if (now_time - m_timeStamp < m_frameDuration)
+//                     {
+//                         updateTimestamp = false;
+//                         //bytesRead = 0;
+//                     }
+//                     gst_object_unref (_clock);
+//                 }
+
                 GST_BUFFER_TIMESTAMP(buffer) = m_timeStamp;
                 GST_BUFFER_DTS(buffer) = m_timeStamp;
                 GST_BUFFER_DURATION(buffer) = m_frameDuration;
