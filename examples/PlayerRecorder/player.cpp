@@ -387,8 +387,13 @@ void Player::open()
     //////////////////////////////////////////////////////////////////////////
     // AppSrcDevice using
     //
-    // If this is removed or commented out, 
-    //the logic of the original player will work
+    // If this is uncommented, 
+    // the logic of the original player will work
+//     if (true)
+//     {
+//         controls->setEnabled(true);
+//     }
+//     else
     {
         if (!appSrcDevice)
         {
@@ -455,7 +460,31 @@ void Player::addToPlaylist(const QList<QUrl> urls)
         if (isPlaylist(url))
             playlist->load(url);
         else
-            playlist->addMedia(url);
+        {
+            // jl
+            
+            QNetworkRequest request(url);
+
+            QStringList params;
+
+            // for h264 decoding default values of video queue are not sufficient (on seek position, on change video rate) - 0 is unlimited
+            // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time
+            params.append("vqueue_max-size-buffers:" + QString::number(0));
+            params.append("vqueue_max-size-bytes:" + QString::number(0));
+            params.append("vqueue_max-size-time:" + QString::number(uint64_t(0)));
+
+            // for h264 decoding default values of audio queue may not be sufficient - 0 is unlimited
+            // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time
+            params.append("aqueue_max-size-buffers:" + QString::number(0));
+            params.append("aqueue_max-size-bytes:" + QString::number(0));
+            params.append("aqueue_max-size-time:" + QString::number(uint64_t(0)));
+
+            request.setAttribute(QNetworkRequest::User, params);
+
+            playlist->addMedia(request);
+            //playlist->addMedia(url);
+            //////////////////////////////////////////////////////////////////////////
+        }
     }
 }
 

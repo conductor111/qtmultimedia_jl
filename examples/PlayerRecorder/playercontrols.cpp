@@ -114,10 +114,17 @@ PlayerControls::PlayerControls(QWidget *parent)
     connect(volumeSlider, SIGNAL(valueChanged(int)), this, SLOT(onVolumeSliderValueChanged()));
 
     rateBox = new QComboBox(this);
+    // jl
+    rateBox->addItem("-2.0x", QVariant(-2.0));
+    rateBox->addItem("-1.0x", QVariant(-1.0));
+    rateBox->addItem("-0.5x", QVariant(-0.5));
     rateBox->addItem("0.5x", QVariant(0.5));
     rateBox->addItem("1.0x", QVariant(1.0));
     rateBox->addItem("2.0x", QVariant(2.0));
-    rateBox->setCurrentIndex(1);
+    rateBox->addItem("4.0x", QVariant(4.0));
+    rateBox->addItem("8.0x", QVariant(8.0));
+    rateBox->setCurrentIndex(4);
+    //////////////////////////////////////////////////////////////////////////
 
     connect(rateBox, SIGNAL(activated(int)), SLOT(updateRate()));
 
