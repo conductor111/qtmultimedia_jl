@@ -227,6 +227,9 @@ QGstreamerPlayerSession::QGstreamerPlayerSession(QObject *parent)
 
         g_signal_connect(G_OBJECT(m_playbin), "notify::source", G_CALLBACK(playbinNotifySource), this);
         g_signal_connect(G_OBJECT(m_playbin), "element-added",  G_CALLBACK(handleElementAdded), this);
+        // jl
+        g_signal_connect(G_OBJECT(m_playbin), "deep-element-added", G_CALLBACK(handleDeepElementAdded), this);
+        //////////////////////////////////////////////////////////////////////////
 
         if (usePlaybinVolume()) {
             updateVolume();
@@ -476,6 +479,10 @@ void QGstreamerPlayerSession::loadFromUri(const QNetworkRequest &request)
     m_duration = -1;
     m_lastPosition = 0;
 
+    // jl
+    m_platybackUserData.parseFromUri(request);
+    //////////////////////////////////////////////////////////////////////////
+
 #if QT_CONFIG(gstreamer_app)
     if (m_appSrc) {
         m_appSrc->deleteLater();
@@ -531,10 +538,22 @@ void QGstreamerPlayerSession::setPlaybackRate(qreal rate)
     if (!qFuzzyCompare(m_playbackRate, rate)) {
         m_playbackRate = rate;
         if (m_playbin && m_seekable) {
-            gst_element_seek(m_playbin, rate, GST_FORMAT_TIME,
-                             GstSeekFlags(GST_SEEK_FLAG_FLUSH),
-                             GST_SEEK_TYPE_NONE,0,
-                             GST_SEEK_TYPE_NONE,0 );
+            // jl
+//             gst_element_seek(m_playbin, rate, GST_FORMAT_TIME,
+//                              GstSeekFlags(GST_SEEK_FLAG_FLUSH),
+//                              GST_SEEK_TYPE_NONE,0,
+//                              GST_SEEK_TYPE_NONE,0 );
+            gint64 position;
+            gst_element_query_position(m_playbin, GST_FORMAT_TIME, &position);
+            if (rate > 0)
+            {
+                gst_element_seek(m_playbin, rate, GST_FORMAT_TIME, GstSeekFlags(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE), GST_SEEK_TYPE_SET, position, GST_SEEK_TYPE_END, 0);
+            }
+            else
+            {
+                gst_element_seek(m_playbin, rate, GST_FORMAT_TIME, GstSeekFlags(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE), GST_SEEK_TYPE_SET, 0, GST_SEEK_TYPE_SET, position);
+            }
+            //////////////////////////////////////////////////////////////////////////
         }
         emit playbackRateChanged(m_playbackRate);
     }
@@ -1119,14 +1138,25 @@ bool QGstreamerPlayerSession::seek(qint64 ms)
     if (m_playbin && !m_pendingVideoSink && m_state != QMediaPlayer::StoppedState && m_seekable) {
         ms = qMax(ms,qint64(0));
         gint64  position = ms * 1000000;
-        bool isSeeking = gst_element_seek(m_playbin,
-                                          m_playbackRate,
-                                          GST_FORMAT_TIME,
-                                          GstSeekFlags(GST_SEEK_FLAG_FLUSH),
-                                          GST_SEEK_TYPE_SET,
-                                          position,
-                                          GST_SEEK_TYPE_NONE,
-                                          0);
+        // jl
+//         bool isSeeking = gst_element_seek(m_playbin,
+//                                           m_playbackRate,
+//                                           GST_FORMAT_TIME,
+//                                           GstSeekFlags(GST_SEEK_FLAG_FLUSH),
+//                                           GST_SEEK_TYPE_SET,
+//                                           position,
+//                                           GST_SEEK_TYPE_NONE,
+//                                           0);
+        bool isSeeking;
+        if (m_playbackRate > 0)
+        {
+            isSeeking = gst_element_seek(m_playbin, m_playbackRate, GST_FORMAT_TIME, GstSeekFlags(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE), GST_SEEK_TYPE_SET, position, GST_SEEK_TYPE_END, 0);
+        }
+        else
+        {
+            isSeeking = gst_element_seek(m_playbin, m_playbackRate, GST_FORMAT_TIME, GstSeekFlags(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE), GST_SEEK_TYPE_SET, 0, GST_SEEK_TYPE_SET, position);
+        }
+        //////////////////////////////////////////////////////////////////////////
         if (isSeeking)
             m_lastPosition = ms;
 
@@ -1887,6 +1917,117 @@ void QGstreamerPlayerSession::handleElementAdded(GstBin *bin, GstElement *elemen
 
     g_free(elementName);
 }
+
+// jl
+const QGstreamerPlayerSession::C_PlaybackUserData::T_GstQueueLimits& QGstreamerPlayerSession::C_PlaybackUserData::vqueueLimits() const
+{
+    return m_vqueueLimits;
+}
+
+const QGstreamerPlayerSession::C_PlaybackUserData::T_GstQueueLimits& QGstreamerPlayerSession::C_PlaybackUserData::aqueueLimits() const
+{
+    return m_aqueueLimits;
+}
+
+void QGstreamerPlayerSession::C_PlaybackUserData::parseFromUri(const QNetworkRequest &request)
+{
+    m_vqueueLimits = m_aqueueLimits = T_GstQueueLimits();
+
+    QVariant userData = request.attribute(QNetworkRequest::User);
+    if (userData.isNull() || !userData.isValid())
+    {
+        return;
+    }
+
+    auto tryFillGstQueueLimitsField = [this](const QString &name, const QString &value) -> bool
+    {
+        const int prefixLen = 7;
+        QString prefix = name.length() > prefixLen ? name.left(prefixLen) : "";
+        T_GstQueueLimits *gstQueueLimits = nullptr;
+        const QString vqueuePrefix = "vqueue_";
+        if (prefix != vqueuePrefix && prefix != "aqueue_")
+        {
+            return false;
+        }
+
+        gstQueueLimits = name.left(prefixLen) == vqueuePrefix ? &m_vqueueLimits : &m_aqueueLimits;
+
+        auto toULongLong = [value](const guint64 oldVal) -> guint64
+        {
+            bool ok;
+            guint64 val = value.toULongLong(&ok);
+            return ok ? val : oldVal;
+        };
+
+        if (name.right(name.length() - prefixLen) == "max-size-buffers")
+        {
+            gstQueueLimits->max_size_buffers = guint(toULongLong(gstQueueLimits->max_size_buffers));
+        }
+        else if (name.right(name.length() - prefixLen) == "max-size-bytes")
+        {
+            gstQueueLimits->max_size_bytes = guint(toULongLong(gstQueueLimits->max_size_bytes));
+        }
+        else if (name.right(name.length() - prefixLen) == "max-size-time")
+        {
+            gstQueueLimits->max_size_time = toULongLong(gstQueueLimits->max_size_time);
+        }
+        else
+        {
+            return false;
+        }
+
+        return true;
+    };
+
+    QStringList listParams = userData.value<QStringList>();
+    for (int i = 0; i < listParams.size(); ++i)
+    {
+        QString param = listParams.at(i).trimmed();
+        QStringList pair = param.split(":");
+        if (pair.size() != 2)
+        {
+            continue;
+        }
+
+        QString name = pair.at(0).trimmed();
+        QString value = pair.at(1).trimmed();
+
+        if (tryFillGstQueueLimitsField(name, value))
+        {
+            continue;
+        }
+    }
+}
+
+void QGstreamerPlayerSession::handleDeepElementAdded(GstBin *bin, GstBin *sub_bin, GstElement *element, QGstreamerPlayerSession *session)
+{
+    if (!session)
+    {
+        return;
+    }
+
+    gchar *elementName = gst_element_get_name(element);
+    if (g_str_has_prefix(elementName, "vqueue"))
+    {
+        // for h264 decoding default values of vqueue are not sufficient (on seek position, on change video rate)
+        g_object_set(G_OBJECT(element), 
+            "max-size-buffers", session->m_platybackUserData.vqueueLimits().max_size_buffers,
+            "max-size-bytes", session->m_platybackUserData.vqueueLimits().max_size_bytes,
+            "max-size-time", session->m_platybackUserData.vqueueLimits().max_size_time,
+            NULL);
+    }
+    else if (g_str_has_prefix(elementName, "aqueue"))
+    {
+        // for h264 decoding default values of aqueue may not be sufficient
+        g_object_set(G_OBJECT(element), 
+            "max-size-buffers", session->m_platybackUserData.aqueueLimits().max_size_buffers,
+            "max-size-bytes", session->m_platybackUserData.aqueueLimits().max_size_bytes,
+            "max-size-time", session->m_platybackUserData.aqueueLimits().max_size_time,
+            NULL);
+    }
+    g_free(elementName);
+}
+//////////////////////////////////////////////////////////////////////////
 
 void QGstreamerPlayerSession::handleStreamsChange(GstBin *bin, gpointer user_data)
 {

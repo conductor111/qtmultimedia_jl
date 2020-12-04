@@ -213,6 +213,25 @@ private:
     static void insertColorSpaceElement(GstElement *element, gpointer data);
 #endif
     static void handleElementAdded(GstBin *bin, GstElement *element, QGstreamerPlayerSession *session);
+    // jl
+    class C_PlaybackUserData
+    {
+    public:
+        struct T_GstQueueLimits
+        {
+            guint max_size_buffers = 0;
+            guint max_size_bytes = 0;
+            guint64 max_size_time = 0;
+        };
+        const T_GstQueueLimits& vqueueLimits() const;
+        const T_GstQueueLimits& aqueueLimits() const;
+        void parseFromUri(const QNetworkRequest &request);
+    private:
+        T_GstQueueLimits m_vqueueLimits;
+        T_GstQueueLimits m_aqueueLimits;
+    } m_platybackUserData;
+    static void handleDeepElementAdded(GstBin *bin, GstBin *sub_bin, GstElement *element, QGstreamerPlayerSession *session);
+    //////////////////////////////////////////////////////////////////////////
     static void handleStreamsChange(GstBin *bin, gpointer user_data);
     static GstAutoplugSelectResult handleAutoplugSelect(GstBin *bin, GstPad *pad, GstCaps *caps, GstElementFactory *factory, QGstreamerPlayerSession *session);
 
