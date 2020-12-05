@@ -242,6 +242,24 @@ void Player::changeRecordButtonState(bool recordButtonIsChecked)
         
         audioSettings = settingsDialog.audioSettings();
         videoSettings = settingsDialog.videoSettings();
+
+        // jl
+        // you can use any enconder parameter
+        // see gstreamer documentation
+        // CHECK TYPES!
+        if ("video/x-h264" == videoSettings.codec())
+        {
+            // GstX264EncTune
+            // zerolatency(0x00000004) – Zero latency
+            videoSettings.setEncodingOption("tune", 4);
+            
+            // Not need - just example
+            // CHECK TYPES!
+            // videoSettings.setEncodingOption("ip-factor", float(1.5));
+            // videoSettings.setEncodingOption("bframes", uint32_t(1));
+        }
+        //////////////////////////////////////////////////////////////////////////
+
         videoContainerFormat = settingsDialog.format();
 
         mediaRecorder->setEncodingSettings(
@@ -419,8 +437,52 @@ void Player::open()
         params.append(QString("max_bytes:") + QString::number(16 * 1024 * 1024));
         // this QIODevice will be used to query the image data to record it to the output video file
         params.append(QString("appSrcStream:") + QString::number((qulonglong)appSrcDeviceRecord.get()));
+
+        // for h264 decoding default values of video queue are not sufficient (on seek position, on change video rate) - 0 is unlimited
+        // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time, leaky
+        // default values: max-size-buffers = 0,  max-size-bytes = 100 * 1024 * 1024, max-size-time = 0, leaky = 0
+        params.append("vqueue_max-size-buffers:" + QString::number(0));
+        params.append("vqueue_max-size-bytes:" + QString::number(90 * 1024 * 1024));
+        params.append("vqueue_max-size-time:" + QString::number(uint64_t(0)));
+        params.append("vqueue_leaky:" + QString::number(0));
+
+        // for h264 decoding default values of audio queue may not be sufficient - 0 is unlimited
+        // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time, leaky
+        // default values: max-size-buffers = 0,  max-size-bytes = 100 * 1024 * 1024, max-size-time = 0, leaky = 0
+        params.append("aqueue_max-size-buffers:" + QString::number(0));
+        params.append("aqueue_max-size-bytes:" + QString::number(90 * 1024 * 1024));
+        params.append("aqueue_max-size-time:" + QString::number(uint64_t(0)));
+        params.append("aqueue_leaky:" + QString::number(0));
+
+        // Capture session params
+        /////////////////////////
+        QString additionalParamsPrefix = "QGCS:";
+        
+        // we can enable/disable PreviewAndRecordingPipeline in the capture session
+        // it allows to prevent (if PreviewAndRecordingPipelineEnable = false) the pipeline from freezing in some cases 
+        // (x264 Matroska for example) without changing the video queue parameters
+        // without PreviewAndRecordingPipeline = true video and audio streams may be out of sync, default value: true
+        bool qgcsPreviewAndRecordingPipelineEnable = true;
+        params.append(additionalParamsPrefix + "PreviewAndRecordingPipelineEnable:" + (qgcsPreviewAndRecordingPipelineEnable ? "true" : "false"));
+
+        // Queues params
+        // for h264 encoding default values of video queue may not be sufficient (pipeline freezing) - 0 is unlimited
+        // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time, leaky
+        // default values: max-size-buffers = 0,  max-size-bytes = 100 * 1024 * 1024, max-size-time = 0, leaky = 0
+        params.append(additionalParamsPrefix + "vqueue_max-size-buffers:" + QString::number(0));
+        params.append(additionalParamsPrefix + "vqueue_max-size-bytes:" + QString::number(90 * 1024 * 1024));
+        params.append(additionalParamsPrefix + "vqueue_max-size-time:" + QString::number(uint64_t(0)));
+        params.append(additionalParamsPrefix + "vqueue_leaky:" + QString::number(0));
+        // for h264 encoding default values of audio queue may not be sufficient (pipeline freezing) - 0 is unlimited
+        // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time, leaky
+        // default values: max-size-buffers = 0,  max-size-bytes = 100 * 1024 * 1024, max-size-time = 0, leaky = 0
+        params.append(additionalParamsPrefix + "aqueue_max-size-buffers:" + QString::number(0));
+        params.append(additionalParamsPrefix + "aqueue_max-size-bytes:" + QString::number(90 * 1024 * 1024));
+        params.append(additionalParamsPrefix + "aqueue_max-size-time:" + QString::number(uint64_t(0)));
+        params.append(additionalParamsPrefix + "aqueue_leaky:" + QString::number(0));
+
         request.setAttribute(QNetworkRequest::User, params);
-    
+
         // this QIODevice will be used to query the image data to play it in the player
         player->setMedia(QMediaContent(request), appSrcDevice.get());
 
@@ -467,17 +529,23 @@ void Player::addToPlaylist(const QList<QUrl> urls)
 
             QStringList params;
 
+            // Playing queues params
+            //////////////////////////////////////////////////////////////////////////
             // for h264 decoding default values of video queue are not sufficient (on seek position, on change video rate) - 0 is unlimited
-            // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time
+            // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time, leaky
+            // default values: max-size-buffers = 0,  max-size-bytes = 100 * 1024 * 1024, max-size-time = 0, leaky = 0
             params.append("vqueue_max-size-buffers:" + QString::number(0));
-            params.append("vqueue_max-size-bytes:" + QString::number(0));
+            params.append("vqueue_max-size-bytes:" + QString::number(90 * 1024 * 1024));
             params.append("vqueue_max-size-time:" + QString::number(uint64_t(0)));
+            params.append("vqueue_leaky:" + QString::number(0));
 
             // for h264 decoding default values of audio queue may not be sufficient - 0 is unlimited
-            // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time
+            // see gstreamer queue params: max-size-buffers, max-size-bytes, max-size-time, leaky
+            // default values: max-size-buffers = 0,  max-size-bytes = 100 * 1024 * 1024, max-size-time = 0, leaky = 0
             params.append("aqueue_max-size-buffers:" + QString::number(0));
-            params.append("aqueue_max-size-bytes:" + QString::number(0));
+            params.append("aqueue_max-size-bytes:" + QString::number(90 * 1024 * 1024));
             params.append("aqueue_max-size-time:" + QString::number(uint64_t(0)));
+            params.append("aqueue_leaky:" + QString::number(0));
 
             request.setAttribute(QNetworkRequest::User, params);
 
