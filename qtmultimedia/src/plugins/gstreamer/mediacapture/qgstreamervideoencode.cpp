@@ -113,6 +113,9 @@ QVideoEncoderSettings QGstreamerVideoEncode::videoSettings() const
 
 void QGstreamerVideoEncode::setVideoSettings(const QVideoEncoderSettings &settings)
 {
+    // jl
+    m_options[settings.codec()] = settings.encodingOptions();
+    //////////////////////////////////////////////////////////////////////////
     m_videoSettings = settings;
 }
 
@@ -223,6 +226,14 @@ GstElement *QGstreamerVideoEncode::createEncoder()
             case QVariant::String:
                 g_object_set(G_OBJECT(encoderElement), option.toLatin1(), value.toString().toUtf8().constData(), NULL);
                 break;
+            // jl
+            case QVariant::UInt:
+                g_object_set(G_OBJECT(encoderElement), option.toLatin1(), value.toUInt(), NULL);
+                break;
+            case QMetaType::Float:
+                g_object_set(G_OBJECT(encoderElement), option.toLatin1(), value.toFloat(), NULL);
+                break;
+            //////////////////////////////////////////////////////////////////////////
             default:
                 qWarning() << "unsupported option type:" << option << value;
                 break;
