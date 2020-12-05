@@ -105,6 +105,7 @@ public:
     {
         return m_additionalInitParams;
     }
+    virtual void fillVideoAudioQueuesLimitsFromParamsList(const QString &prefix, const QStringList &listParams, T_GstQueueLimits &vQueueLimits, T_GstQueueLimits &aQueueLimits);
     //////////////////////////////////////
 
     QGstreamerPlayerSession(QObject *parent);
@@ -217,19 +218,15 @@ private:
     class C_PlaybackUserData
     {
     public:
-        struct T_GstQueueLimits
-        {
-            guint max_size_buffers = 0;
-            guint max_size_bytes = 0;
-            guint64 max_size_time = 0;
-        };
+        C_PlaybackUserData(QGstreamerPlayerSession* session);
         const T_GstQueueLimits& vqueueLimits() const;
         const T_GstQueueLimits& aqueueLimits() const;
         void parseFromUri(const QNetworkRequest &request);
     private:
         T_GstQueueLimits m_vqueueLimits;
         T_GstQueueLimits m_aqueueLimits;
-    } m_platybackUserData;
+        QGstreamerPlayerSession* m_session;
+    } m_platybackUserData{ this };
     static void handleDeepElementAdded(GstBin *bin, GstBin *sub_bin, GstElement *element, QGstreamerPlayerSession *session);
     //////////////////////////////////////////////////////////////////////////
     static void handleStreamsChange(GstBin *bin, gpointer user_data);

@@ -86,6 +86,14 @@ public:
     virtual QList<QSize> supportedResolutions(qreal frameRate = -1) const = 0;
     // jl
     virtual QStringList additionalInitParams() const = 0;
+    struct T_GstQueueLimits
+    {
+        guint max_size_buffers = 0;
+        guint max_size_bytes = 100 * 1024 * 1024;
+        guint64 max_size_time = 0;
+        guint leaky = 0;
+    };
+    virtual void fillVideoAudioQueuesLimitsFromParamsList(const QString &prefix, const QStringList &listParams, T_GstQueueLimits &vQueueLimits, T_GstQueueLimits &aQueueLimits) = 0;
     //////////////////////////////////////////////////////////////////////////
 };
 
@@ -240,7 +248,9 @@ private:
     GstElement *m_encodeBin;
 
     // jl
-    bool m_previewAndRecordingPipelineEnable = false;
+    bool m_previewAndRecordingPipelineEnable = true;
+    QGstreamerVideoInput::T_GstQueueLimits m_audioPreviewQueueLimits;
+    QGstreamerVideoInput::T_GstQueueLimits m_videoPreviewQueueLimits;
     //////////////////////////////////////////////////////////////////////////
 
 #if GST_CHECK_VERSION(1,0,0)

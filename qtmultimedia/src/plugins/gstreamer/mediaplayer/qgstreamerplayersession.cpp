@@ -378,6 +378,7 @@ void QGstreamerPlayerSession::configureAppSrcElement(GObject* object, GObject *o
     if (!userData.isNull() && userData.isValid())
     {
         configureAppSrcObjects(self->m_request, self->m_appSrc, appsrc);
+        self->m_platybackUserData.parseFromUri(self->m_request);
     }
     //////////////////////////////////////////////////////////////////////////
 
@@ -1919,27 +1920,9 @@ void QGstreamerPlayerSession::handleElementAdded(GstBin *bin, GstElement *elemen
 }
 
 // jl
-const QGstreamerPlayerSession::C_PlaybackUserData::T_GstQueueLimits& QGstreamerPlayerSession::C_PlaybackUserData::vqueueLimits() const
+void QGstreamerPlayerSession::fillVideoAudioQueuesLimitsFromParamsList(const QString &prefix, const QStringList &listParams, T_GstQueueLimits &vQueueLimits, T_GstQueueLimits &aQueueLimits)
 {
-    return m_vqueueLimits;
-}
-
-const QGstreamerPlayerSession::C_PlaybackUserData::T_GstQueueLimits& QGstreamerPlayerSession::C_PlaybackUserData::aqueueLimits() const
-{
-    return m_aqueueLimits;
-}
-
-void QGstreamerPlayerSession::C_PlaybackUserData::parseFromUri(const QNetworkRequest &request)
-{
-    m_vqueueLimits = m_aqueueLimits = T_GstQueueLimits();
-
-    QVariant userData = request.attribute(QNetworkRequest::User);
-    if (userData.isNull() || !userData.isValid())
-    {
-        return;
-    }
-
-    auto tryFillGstQueueLimitsField = [this](const QString &name, const QString &value) -> bool
+    auto tryFillGstQueueLimitsField = [&vQueueLimits, &aQueueLimits](const QString &name, const QString &value) -> bool
     {
         const int prefixLen = 7;
         QString prefix = name.length() > prefixLen ? name.left(prefixLen) : "";
@@ -1950,7 +1933,7 @@ void QGstreamerPlayerSession::C_PlaybackUserData::parseFromUri(const QNetworkReq
             return false;
         }
 
-        gstQueueLimits = name.left(prefixLen) == vqueuePrefix ? &m_vqueueLimits : &m_aqueueLimits;
+        gstQueueLimits = name.left(prefixLen) == vqueuePrefix ? &vQueueLimits : &aQueueLimits;
 
         auto toULongLong = [value](const guint64 oldVal) -> guint64
         {
@@ -1959,17 +1942,22 @@ void QGstreamerPlayerSession::C_PlaybackUserData::parseFromUri(const QNetworkReq
             return ok ? val : oldVal;
         };
 
-        if (name.right(name.length() - prefixLen) == "max-size-buffers")
+        QString valName = name.right(name.length() - prefixLen);
+        if (valName == "max-size-buffers")
         {
             gstQueueLimits->max_size_buffers = guint(toULongLong(gstQueueLimits->max_size_buffers));
         }
-        else if (name.right(name.length() - prefixLen) == "max-size-bytes")
+        else if (valName == "max-size-bytes")
         {
             gstQueueLimits->max_size_bytes = guint(toULongLong(gstQueueLimits->max_size_bytes));
         }
-        else if (name.right(name.length() - prefixLen) == "max-size-time")
+        else if (valName == "max-size-time")
         {
             gstQueueLimits->max_size_time = toULongLong(gstQueueLimits->max_size_time);
+        }
+        else if (valName == "leaky")
+        {
+            gstQueueLimits->leaky = guint(toULongLong(gstQueueLimits->leaky));
         }
         else
         {
@@ -1979,10 +1967,17 @@ void QGstreamerPlayerSession::C_PlaybackUserData::parseFromUri(const QNetworkReq
         return true;
     };
 
-    QStringList listParams = userData.value<QStringList>();
     for (int i = 0; i < listParams.size(); ++i)
     {
         QString param = listParams.at(i).trimmed();
+        if (!prefix.isEmpty() && param.length() > prefix.length())
+        {
+            if (param.left(prefix.length()) != prefix)
+            {
+                continue;
+            }
+            param = param.right(param.length() - prefix.length());
+        }
         QStringList pair = param.split(":");
         if (pair.size() != 2)
         {
@@ -1999,6 +1994,34 @@ void QGstreamerPlayerSession::C_PlaybackUserData::parseFromUri(const QNetworkReq
     }
 }
 
+QGstreamerPlayerSession::C_PlaybackUserData::C_PlaybackUserData(QGstreamerPlayerSession* session)
+    : m_session{ session }
+{
+}
+
+const QGstreamerVideoInput::T_GstQueueLimits& QGstreamerPlayerSession::C_PlaybackUserData::vqueueLimits() const
+{
+    return m_vqueueLimits;
+}
+
+const QGstreamerVideoInput::T_GstQueueLimits& QGstreamerPlayerSession::C_PlaybackUserData::aqueueLimits() const
+{
+    return m_aqueueLimits;
+}
+
+void QGstreamerPlayerSession::C_PlaybackUserData::parseFromUri(const QNetworkRequest &request)
+{
+    m_vqueueLimits = m_aqueueLimits = T_GstQueueLimits();
+
+    QVariant userData = request.attribute(QNetworkRequest::User);
+    if (userData.isNull() || !userData.isValid())
+    {
+        return;
+    }
+
+    m_session->fillVideoAudioQueuesLimitsFromParamsList("", userData.value<QStringList>(), m_vqueueLimits, m_aqueueLimits);
+}
+
 void QGstreamerPlayerSession::handleDeepElementAdded(GstBin *bin, GstBin *sub_bin, GstElement *element, QGstreamerPlayerSession *session)
 {
     if (!session)
@@ -2007,22 +2030,16 @@ void QGstreamerPlayerSession::handleDeepElementAdded(GstBin *bin, GstBin *sub_bi
     }
 
     gchar *elementName = gst_element_get_name(element);
-    if (g_str_has_prefix(elementName, "vqueue"))
+    // for h264 decoding: default values of vqueue are not sufficient (on seek position, on change video rate)
+    //                    default values of aqueue may not be sufficient
+    if (g_str_has_prefix(elementName, "vqueue") || g_str_has_prefix(elementName, "aqueue"))
     {
-        // for h264 decoding default values of vqueue are not sufficient (on seek position, on change video rate)
+        const T_GstQueueLimits& limits = g_str_has_prefix(elementName, "vqueue") ? session->m_platybackUserData.vqueueLimits() : session->m_platybackUserData.aqueueLimits();
         g_object_set(G_OBJECT(element), 
-            "max-size-buffers", session->m_platybackUserData.vqueueLimits().max_size_buffers,
-            "max-size-bytes", session->m_platybackUserData.vqueueLimits().max_size_bytes,
-            "max-size-time", session->m_platybackUserData.vqueueLimits().max_size_time,
-            NULL);
-    }
-    else if (g_str_has_prefix(elementName, "aqueue"))
-    {
-        // for h264 decoding default values of aqueue may not be sufficient
-        g_object_set(G_OBJECT(element), 
-            "max-size-buffers", session->m_platybackUserData.aqueueLimits().max_size_buffers,
-            "max-size-bytes", session->m_platybackUserData.aqueueLimits().max_size_bytes,
-            "max-size-time", session->m_platybackUserData.aqueueLimits().max_size_time,
+            "max-size-buffers", limits.max_size_buffers,
+            "max-size-bytes", limits.max_size_bytes,
+            "max-size-time", limits.max_size_time,
+            "leaky", limits.leaky,
             NULL);
     }
     g_free(elementName);

@@ -280,6 +280,7 @@ GstElement *QGstreamerCaptureSession::buildVideoSrc()
         const char* cTrue = "true";
         const char* cFalse = "false";
         QStringList addParams = m_videoInputFactory->additionalInitParams();
+        QString componentKeyName = "QGCS";
         for (int i = 0; i < addParams.size(); ++i)
         {
             QString param = addParams.at(i).trimmed();
@@ -293,7 +294,7 @@ GstElement *QGstreamerCaptureSession::buildVideoSrc()
             QString name = triplet.at(1).trimmed();
             QString value = triplet.at(2).trimmed();
 
-            if (componentKey != "QGCS")
+            if (componentKey != componentKeyName)
             {
                 continue;
             }
@@ -301,9 +302,10 @@ GstElement *QGstreamerCaptureSession::buildVideoSrc()
             if (name == "PreviewAndRecordingPipelineEnable")
             {
                 QString v = value.toLower();
-                m_previewAndRecordingPipelineEnable = (v == cTrue || v == cFalse) ? v == cTrue : false;
+                m_previewAndRecordingPipelineEnable = (v == cTrue || v == cFalse) ? v == cTrue : m_previewAndRecordingPipelineEnable;
             }
         }
+        m_videoInputFactory->fillVideoAudioQueuesLimitsFromParamsList(componentKeyName + ":", addParams, m_videoPreviewQueueLimits, m_audioPreviewQueueLimits);
         //////////////////////////////////////////////////////////////////////////
     } else {
         videoSrc = gst_element_factory_make("videotestsrc", "video_test_src");
@@ -632,6 +634,18 @@ bool QGstreamerCaptureSession::rebuildGraph(QGstreamerCaptureSession::PipelineMo
                     UNREF_ELEMENT(m_audioTee);
                     UNREF_ELEMENT(m_audioPreviewQueue);
                 }
+
+                // jl
+                if (ok)
+                {
+                    g_object_set(G_OBJECT(m_audioPreviewQueue),
+                        "max-size-buffers", m_audioPreviewQueueLimits.max_size_buffers,
+                        "max-size-bytes", m_audioPreviewQueueLimits.max_size_bytes,
+                        "max-size-time", m_audioPreviewQueueLimits.max_size_time,
+                        "leaky", m_audioPreviewQueueLimits.leaky,
+                        NULL);
+                }
+                //////////////////////////////////////////////////////////////////////////
             }
 
             if (ok && (m_captureMode & Video || m_captureMode & Image)) {
@@ -657,6 +671,18 @@ bool QGstreamerCaptureSession::rebuildGraph(QGstreamerCaptureSession::PipelineMo
 
                 if (ok && (m_captureMode & Video))
                     ok &= gst_element_link(m_videoTee, m_encodeBin);
+
+                // jl
+                if (ok)
+                {
+                    g_object_set(G_OBJECT(m_videoPreviewQueue),
+                        "max-size-buffers", m_videoPreviewQueueLimits.max_size_buffers,
+                        "max-size-bytes", m_videoPreviewQueueLimits.max_size_bytes,
+                        "max-size-time", m_videoPreviewQueueLimits.max_size_time,
+                        "leaky", m_videoPreviewQueueLimits.leaky,
+                        NULL);
+                }
+                //////////////////////////////////////////////////////////////////////////
             }
 
             if (!m_metaData.isEmpty())
