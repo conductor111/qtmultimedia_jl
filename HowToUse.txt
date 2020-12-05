@@ -26,7 +26,7 @@ release:
     del /Q $(TargetDir)mediaservice\wmfengine.dll
 
 They are important for the application to work properly. 
-dsengine.dll, qtmedia_audioengine.dll, wmfengine.dll are libraries that use the Windows default multimedia environment (DirectShow etc.), so if they exist in the mediaservice subdirectory, gstremer will not be used.
+dsengine.dll, qtmedia_audioengine.dll, wmfengine.dll are libraries that use the Windows default multimedia environment (DirectShow etc.), so if they exist in the mediaservice subdirectory, gstreamer will not be used.
 qgsttools_pd.dll/qgsttools_p.dll is a required library of Qt gstreamer.
 
 
